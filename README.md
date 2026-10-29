@@ -1,1 +1,1 @@
-# student--depression-detection
+# student-depression-detection
