@@ -2,96 +2,91 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.feature_extraction import DictVectorizer
-from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
 import pickle
+from sklearn.pipeline import make_pipeline
+
+def load_data():
+    df=pd.read_csv('Student_Depression_Dataset.csv')
+    df.columns=df.columns.str.lower()
+    str_columns=list(df.dtypes[df.dtypes=='str'].index)
+
+    for c in str_columns:
+        df[c]=df[c].str.lower().str.replace(' ', '_')
+
+    df.depression=(df.depression=='yes').astype(int)
+    return df
 
 
-#data preparation
-df=pd.read_csv('Student_Depression_Dataset.csv')
+def train_model(df):
+    df_train, df_test = train_test_split(df, test_size=0.2, random_state=42)
 
-df.columns=df.columns.str.lower()
+    df_train = df_train.reset_index(drop=True)
+    df_test = df_test.reset_index(drop=True)
 
-str_columns=list(df.dtypes[df.dtypes=='str'].index)
-for c in str_columns:
-    df[c]=df[c].str.lower().str.replace(' ', '_')
-df.depression=(df.depression=='yes').astype(int)
+    y_train = df_train['depression'].values
+    y_test = df_test['depression'].values
 
-df_full_train, df_test = train_test_split(df, test_size=0.2, random_state=1)
-df_train, df_val = train_test_split(df_full_train, test_size=0.25, random_state=1)
-len(df_train), len(df_val), len(df_test)
+    del df_train['depression']
+    del df_test['depression']
 
-df_train = df_train.reset_index(drop=True)
-df_val = df_val.reset_index(drop=True)
-df_test = df_test.reset_index(drop=True)
+    df_train['cost_without_study_log'] = np.log1p(df_train['cost_without_study'])
+    df_test['cost_without_study_log'] = np.log1p(df_test['cost_without_study'])
 
-y_train = df_train.depression.values
-y_val = df_val.depression.values
-y_test = df_test.depression.values
+    numerical = ['age', 'cgpa', 'cost_without_study_log']
+    categorical=[
+        'gender', 
+        'family_background', 
+        'relationship_status',
+        'marital_status',
+        'living_style', 
+        'current_semester',
+        'friend_circle', 
+        'home_division'
+        ]
 
-del df_train['depression']
-del df_val['depression']
-del df_test['depression']
 
-#applying np.log1p() to cost_without_study to reduce right-skewness
-df['cost_without_study_log'] = np.log1p(df['cost_without_study'])
-df_full_train['cost_without_study_log']=np.log1p(df_full_train['cost_without_study'])
-df_train['cost_without_study_log'] = np.log1p(df_train['cost_without_study'])
-df_val['cost_without_study_log'] = np.log1p(df_val['cost_without_study'])
-df_test['cost_without_study_log'] = np.log1p(df_test['cost_without_study'])
+    train_dicts = df_train[categorical + numerical].to_dict(orient='records')
+    test_dicts = df_test[categorical + numerical].to_dict(orient='records')
 
-#applying StandartScaler() to the numerical features
-numerical=['age', 'cgpa', 'cost_without_study_log']
-scaler = StandardScaler()
+    dv = DictVectorizer(sparse=False)
+    X_train = dv.fit_transform(train_dicts)
 
-df_train[numerical] = scaler.fit_transform(df_train[numerical])
-df_val[numerical] = scaler.transform(df_val[numerical])
-df_test[numerical] = scaler.transform(df_test[numerical])
+    #Random Forest Model
+    rf_param_grid={
+        'max_depth':[5,10,15,None],
+        'n_estimators':[50,100,200],
+        'min_samples_leaf':[1,2,5]
+    }
 
-categorical=[
-       'gender', 
-       'family_background', 
-       'relationship_status',
-       'marital_status',
-       'living_style', 
-       'current_semester',
-       'friend_circle', 
-       'home_division'
-       ]
+    rf_model = RandomForestClassifier(random_state=42)
 
-dicts=df[categorical+numerical].to_dict(orient='records')
+    rf_grid_search = GridSearchCV(
+        estimator=rf_model, 
+        param_grid=rf_param_grid, 
+        cv=5, 
+        scoring='roc_auc', 
+        n_jobs=-1
+    )
 
-train_dicts = df_train[categorical + numerical].to_dict(orient='records')
-val_dicts = df_val[categorical + numerical].to_dict(orient='records')
-test_dicts = df_test[categorical + numerical].to_dict(orient='records')
+    rf_grid_search.fit(X_train, y_train)
 
-dv = DictVectorizer(sparse=False)
-X_train = dv.fit_transform(train_dicts)
+    pipeline = make_pipeline(
+        DictVectorizer(sparse=False), 
+        rf_grid_search.best_estimator_)
 
-X_val = dv.transform(val_dicts)
-X_test = dv.transform(test_dicts)
+    pipeline.fit(train_dicts, y_train)
 
-#training the model
-rf_param_grid={
-    'max_depth':[5,10,15,None],
-    'n_estimators':[50,100,200],
-    'min_samples_leaf':[1,2,5]
-}
+    return pipeline
 
-rf_model = RandomForestClassifier(random_state=42)
+def save_model(filename, model):
+    with open(filename, 'wb') as f_out:
+        pickle.dump(model, f_out)
+    print(f'model saved to {filename}')
 
-rf_grid_search = GridSearchCV(
-    estimator=rf_model, 
-    param_grid=rf_param_grid, 
-    cv=5, 
-    scoring='roc_auc', 
-    n_jobs=-1
-)
 
-print('Training the model...')
-rf_grid_search.fit(X_train, y_train)
-print('Training done.')
+df=load_data()
+pipeline=train_model(df)
+save_model('rf_model.bin', pipeline)
 
-ouput_file='rf_model.bin'
-with open(ouput_file, 'wb') as f_out:
-    pickle.dump((dv, scaler, rf_grid_search.best_estimator_), f_out)
+
