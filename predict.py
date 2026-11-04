@@ -1,61 +1,63 @@
+from fastapi import FastAPI
+from pydantic import BaseModel, Field
 import pickle
+import uvicorn
 import numpy as np
-from flask import Flask
-from flask import request
-from flask import jsonify
+from typing import Literal
 
-model_file='rf_model.bin'
+class Student(BaseModel):
 
-with open(model_file, 'rb') as f_in:
-    dv, scaler, model=pickle.load(f_in)
-
-app=Flask('depression')
-
-@app.route('/predict', methods=['POST'])
-def predict():
-    student = request.get_json()
-
-    str_columns=[
-       'gender', 
-       'family_background', 
-       'relationship_status',
-       'marital_status',
-       'living_style', 
-       'friend_circle', 
-       'home_division'
-       ]
+    gender: Literal["female", "male"]
+    family_background: Literal["middle_class", "lower_middle_class", "rich_class"]
+    relationship_status: Literal["single", "in_a_relationship", "complicated"]
+    marital_status: Literal["unmarried", "married", "separated"]
+    living_style: Literal["bachelor", "family"]
+    friend_circle: Literal["yes", "no"]
+    home_division: Literal[
+        "dhaka", "khulna", "rajshahi", "sylhet", 
+        "chittagong", "rangpur", "barisal", "mymensingh"
+    ]
     
-    for c in str_columns:
-        if c in student and isinstance(student[c], str):
-            student[c]=student[c].lower().replace(' ', '_')
-    cost=student.get('cost_without_study', 0)
-    student['cost_without_study_log']=np.log1p(cost)
+    current_semester: int = Field(..., ge=0, le=13, description="Semester ranging from 0 to 13")
+    age: int = Field(..., ge=17, le=100, description="Age in years")
+    cgpa: float = Field(..., ge=0.0, le=4.0, description="CGPA on a 4.0 scale")
+    cost_without_study: int = Field(..., ge=0, description="Monthly/Annual cost in local currency")
 
-    numerical = ['age', 'cgpa', 'cost_without_study_log']
+class PredictResponse(BaseModel):
+    depression_probability: float
+    depression: bool    
+
+with open('rf_model.bin', 'rb') as f_in:
+    model = pickle.load(f_in)
+
+app = FastAPI(title="Student Depression Prediction API")
+
+def prepare_features(student_dict):
+    processed = student_dict.copy()
     
-    num_values = [[
-        student.get('age', 0), 
-        student.get('cgpa', 0.0), 
-        student['cost_without_study_log']
-    ]]
+    for key, value in processed.items():
+        if isinstance(value, str):
+            processed[key] = value.lower().replace(' ', '_')
+            
+    if 'cost_without_study' in processed:
+        processed['cost_without_study_log'] = np.log1p(processed['cost_without_study'])
+        del processed['cost_without_study']
+        
+    return processed
 
-    scaled_values = scaler.transform(num_values)[0]
 
-    student['age'] = scaled_values[0]
-    student['cgpa'] = scaled_values[1]
-    student['cost_without_study_log'] = scaled_values[2]
+def predict_single(student):
+    result=model.predict_proba(student)[0,1]
+    return float(result)
 
-    X = dv.transform([student])
-    y_pred = model.predict_proba(X)[0, 1]
-    depression = y_pred >= 0.2
 
-    result = {
-        'depression_probability': float(y_pred),
-        'depression': bool(depression)
-    }
-
-    return jsonify(result)
-
+@app.post("/predict")
+def predict_depression(student: Student) -> PredictResponse:
+    prob=predict_single(student.model_dump())
+    return PredictResponse(
+        depression_probability=prob,
+        depression=bool(prob>=0.25)
+    )
 
 if __name__ == "__main__":
-    app.run(debug=True, host='0.0.0.0', port=9696)
+    uvicorn.run(app, host="0.0.0.0", port=9696)

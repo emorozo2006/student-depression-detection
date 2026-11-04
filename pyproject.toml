@@ -1,0 +1,21 @@
+[project]
+name = "student-depression-detection"
+version = "0.1.0"
+description = "Depression prediction"
+readme = "README.md"
+authors = [
+    { name = "Ekaterina Morozova", email = "104031955+emorozo2006@users.noreply.github.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.162.0",
+    "scikit-learn>=1.9.1",
+    "uvicorn>=0.54.0",
+]
+
+[project.scripts]
+student-depression-detection = "student_depression_detection:main"
+
+[build-system]
+requires = ["uv_build>=0.13.7,<0.14.0"]
+build-backend = "uv_build"
