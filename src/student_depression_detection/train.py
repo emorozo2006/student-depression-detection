@@ -7,7 +7,7 @@ import pickle
 from sklearn.pipeline import make_pipeline
 
 def load_data():
-    df=pd.read_csv('Student_Depression_Dataset.csv')
+    df=pd.read_csv('data/Student_Depression_Dataset.csv')
     df.columns=df.columns.str.lower()
     str_columns=list(df.dtypes[df.dtypes=='str'].index)
 
@@ -87,6 +87,6 @@ def save_model(filename, model):
 
 df=load_data()
 pipeline=train_model(df)
-save_model('rf_model.bin', pipeline)
+save_model('models/rf_model.bin', pipeline)
 
 

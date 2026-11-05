@@ -9,8 +9,8 @@ COPY src/ ./src/
 
 RUN uv sync --locked
 
-COPY "predict.py" "rf_model.bin" "./"
+COPY models/ ./models/
 
 EXPOSE 9696
 
-ENTRYPOINT ["uv", "run", "uvicorn", "predict:app", "--host", "0.0.0.0", "--port", "9696"]
+ENTRYPOINT ["uv", "run", "uvicorn", "src.student_depression_detection.predict:app", "--host", "0.0.0.0", "--port", "9696"]

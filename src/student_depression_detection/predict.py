@@ -27,7 +27,7 @@ class PredictResponse(BaseModel):
     depression_probability: float
     depression: bool    
 
-with open('rf_model.bin', 'rb') as f_in:
+with open('models/rf_model.bin', 'rb') as f_in:
     model = pickle.load(f_in)
 
 app = FastAPI(title="Student Depression Prediction API")
