@@ -25,18 +25,6 @@ Multiple model architectures were trained and evaluated:
 
 Hyperparameter tuning was conducted (adjusting parameters such as max_depth, n_estimators, and learning_rate) to maximize the ROC-AUC metric. The Random Forest was selected as the best performing model with the Validation ROC-AUC of 0.756071 and serialized for deployment.
 
-ROC-AUC on Test Set: 0.7488
-
-Classification Report:
-                precision   recall   f1-score   support
-
-           0       0.92      0.45      0.61       632
-           1       0.40      0.90      0.56       261
-
-    accuracy                           0.58       893
-   macro avg       0.66      0.68      0.58       893
-weighted avg       0.77      0.58      0.59       893
-
 ## 4. Dependency and Environment Management
 
 This project uses uv.
@@ -64,19 +52,14 @@ This script loads the dataset, performs data preprocessing, trains the optimal m
 Local Model Deployment:
 
 ```bash
-uvicorn src.student_depression_detection.predict:app --host 0.0.0.0 --port 8000 --reload
-```
-The web service will be accessible at http://localhost:8000. You can test local predictions by executing:
-
-```bash
-python test.py
+uvicorn src.student_depression_detection.predict:app --host 0.0.0.0 --port 9696 --reload
 ```
 
 Containerization with Docker:
 
 ```bash
 docker build -t student-depression-api .
-docker run -it --rm -p 8000:8000 student-depression-api
+docker run -it --rm -p 9696:9696 student-depression-api
 ```
 Cloud Deployment:
 
