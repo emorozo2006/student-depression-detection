@@ -18,10 +18,10 @@ class Student(BaseModel):
         "chittagong", "rangpur", "barisal", "mymensingh"
     ]
     
-    current_semester: int = Field(..., ge=0, le=13, description="Semester ranging from 0 to 13")
-    age: int = Field(..., ge=17, le=100, description="Age in years")
-    cgpa: float = Field(..., ge=0.0, le=4.0, description="CGPA on a 4.0 scale")
-    cost_without_study: int = Field(..., ge=0, description="Monthly/Annual cost in local currency")
+    current_semester: int = Field(..., ge=0, le=13,)
+    age: int = Field(..., ge=17, le=100)
+    cgpa: float = Field(..., ge=0.0, le=4.0)
+    cost_without_study: int = Field(..., ge=0)
 
 class PredictResponse(BaseModel):
     depression_probability: float
@@ -47,13 +47,16 @@ def prepare_features(student_dict):
 
 
 def predict_single(student):
-    result=model.predict_proba(student)[0,1]
+    result=model.predict_proba([student])[0,1]
     return float(result)
 
 
 @app.post("/predict")
 def predict_depression(student: Student) -> PredictResponse:
-    prob=predict_single(student.model_dump())
+    student_dict=student.model_dump()
+    processed_student=prepare_features(student_dict)
+
+    prob=predict_single(processed_student)
     return PredictResponse(
         depression_probability=prob,
         depression=bool(prob>=0.25)
