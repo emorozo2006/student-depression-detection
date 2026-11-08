@@ -59,7 +59,7 @@ def predict_depression(student: Student) -> PredictResponse:
     prob=predict_single(processed_student)
     return PredictResponse(
         depression_probability=prob,
-        depression=bool(prob>=0.25)
+        depression=bool(prob>=0.30)
     )
 
 if __name__ == "__main__":
